@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/utils/storage_utils.dart';
 import '../../domain/entities/user.dart';
+import '../mock/mock_data.dart';
 import '../model/request/edit_password_request.dart';
 import '../model/request/edit_profile_request.dart';
 import '../model/request/login_request.dart';
@@ -19,21 +22,85 @@ class UserApi {
   ///
   /// Returns the user ID as an integer.
   static Future<int> createUser(RegistrationRequest request) async {
-    Response? response = await ApiHelper.makeRequest(
-        '${ApiHelper.apiUrl}user/register', 'POST',
-        data: request.toMap());
-    return response?.data;
+    if (AppConfig.useMockData) {
+      print('DEBUG: Using mock registration data');
+      return MockData.mockUserId();
+    }
+
+    try {
+      Response? response = await ApiHelper.makeRequest(
+          '${ApiHelper.apiUrl}user/register', 'POST',
+          data: request.toMap());
+      
+      final userId = response?.data;
+      print('DEBUG: Registration response data: $userId (type: ${userId.runtimeType})');
+      
+      if (userId == null) {
+        print('DEBUG: Response data is null');
+        return 0;
+      }
+      if (userId is int) {
+        print('DEBUG: User ID is int: $userId');
+        return userId;
+      }
+      if (userId is String && userId.isNotEmpty) {
+        try {
+          final parsed = int.parse(userId);
+          print('DEBUG: Parsed user ID from string: $parsed');
+          return parsed;
+        } catch (e) {
+          print('DEBUG: Failed to parse user ID from string "$userId": $e');
+          return 0;
+        }
+      }
+      print('DEBUG: Unexpected response format: $userId');
+      return 0;
+    } catch (e) {
+      print('DEBUG: Exception in createUser: $e');
+      rethrow;
+    }
   }
 
   /// Logs in a user.
   ///
   /// Returns a [LoginResponse] object.
   static Future<LoginResponse> login(LoginRequest request) async {
-    Response? response = await ApiHelper.makeRequest(
-        '${ApiHelper.apiUrl}user/login', 'POST',
-        data: request.toMap());
+    if (AppConfig.useMockData) {
+      print('DEBUG: Using mock login data');
+      return MockData.mockLoginResponse();
+    }
 
-    return LoginResponse.fromMap(response?.data);
+    try {
+      Response? response = await ApiHelper.makeRequest(
+          '${ApiHelper.apiUrl}user/login', 'POST',
+          data: request.toMap());
+
+      print('DEBUG: Login response data: ${response?.data} (type: ${response?.data.runtimeType})');
+      print('DEBUG: Login response statusCode: ${response?.statusCode}');
+      
+      if (response?.data == null) {
+        throw Exception('Login response is null');
+      }
+      
+      if (response?.data is String) {
+        print('DEBUG: Login response is a String, attempting to parse as JSON');
+        try {
+          final jsonData = jsonDecode(response!.data);
+          return LoginResponse.fromMap(jsonData);
+        } catch (e) {
+          throw Exception('Failed to parse login response: $e. Response was: ${response!.data}');
+        }
+      }
+      
+      if (response?.data is Map) {
+        return LoginResponse.fromMap(response?.data);
+      }
+      
+      throw Exception('Unexpected login response type: ${response?.data.runtimeType}. Data: ${response?.data}');
+    } catch (e) {
+      print('DEBUG: Login error: $e');
+      rethrow;
+    }
   }
 
   /// Logs out the current user.

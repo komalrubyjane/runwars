@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/error.dart';
 import '../../../core/utils/storage_utils.dart';
@@ -91,7 +93,24 @@ class RemoteApi {
 
   /// Constructs a RemoteApi object with the given [url].
   RemoteApi(this.url) {
-    dio = Dio();
+    final baseOptions = BaseOptions(
+      validateStatus: (status) {
+        // Allow 2xx and 3xx status codes (including 307 redirects)
+        return status != null && status < 400;
+      },
+    );
+    dio = Dio(baseOptions);
+    
+    // Disable certificate verification for development (should be removed in production)
+    if (kDebugMode) {
+      (dio.httpClientAdapter as dynamic).onHttpClientCreate =
+          (HttpClient client) {
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
+        return client;
+      };
+    }
+    
     initCache();
   }
 
