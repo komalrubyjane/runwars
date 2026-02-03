@@ -8,12 +8,14 @@ import '../../common/activity/widgets/activity_list.dart';
 import '../../common/core/enums/infinite_scroll_list.enum.dart';
 import '../../common/core/utils/color_utils.dart';
 import '../../common/core/utils/ui_utils.dart';
+import '../providers/community_activities_provider.dart';
 import '../view_model/community_view_model.dart';
 import '../view_model/pending_request_view_model.dart';
+import '../widgets/nearby_runners_section.dart';
 import '../widgets/search_widget.dart';
 import 'pending_requests_screen.dart';
 
-/// The screen that displays community infos
+/// The screen that displays community infos (uses Supabase, not legacy Dio API)
 class CommunityScreen extends HookConsumerWidget {
   final TextEditingController _searchController = TextEditingController();
 
@@ -22,17 +24,15 @@ class CommunityScreen extends HookConsumerWidget {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey();
 
   final pendingRequestsDataFutureProvider = FutureProvider<int>((ref) async {
-    final pendingRequestsProvider =
-        ref.watch(pendingRequestsViewModelProvider.notifier);
-    EntityPage<User> users =
-        await pendingRequestsProvider.fetchPendingRequests();
-    return users.total;
-  });
-
-  final communityDataFutureProvider =
-      FutureProvider<EntityPage<Activity>>((ref) async {
-    final communityProvider = ref.read(communityViewModelProvider.notifier);
-    return await communityProvider.getInitialMyAndMyFriendsActivities();
+    try {
+      final pendingRequestsProvider =
+          ref.watch(pendingRequestsViewModelProvider.notifier);
+      EntityPage<User> users =
+          await pendingRequestsProvider.fetchPendingRequests();
+      return users.total;
+    } catch (_) {
+      return 0;
+    }
   });
 
   @override
@@ -40,7 +40,7 @@ class CommunityScreen extends HookConsumerWidget {
     var provider = ref.read(communityViewModelProvider.notifier);
     var pendingRequestsStateProvider =
         ref.watch(pendingRequestsDataFutureProvider);
-    var communityStateProvider = ref.watch(communityDataFutureProvider);
+    var communityStateProvider = ref.watch(communityActivitiesProvider);
 
     return Scaffold(
         appBar: SearchWidget(
@@ -50,31 +50,45 @@ class CommunityScreen extends HookConsumerWidget {
           },
         ),
         body: Column(children: [
+          const NearbyRunnersSection(),
           Expanded(
             child: RefreshIndicator(
                 key: _refreshIndicatorKey,
                 onRefresh: () async {
                   provider.refreshList();
-                  return ref.refresh(communityDataFutureProvider);
+                  ref.invalidate(communityActivitiesProvider);
                 },
                 child: Column(children: [
                   communityStateProvider.when(
-                    data: (initialData) {
+                    data: (activities) {
                       return ActivityList(
                         id: InfiniteScrollListEnum.community.toString(),
-                        activities: initialData.list,
-                        total: initialData.total,
+                        activities: activities,
+                        total: activities.length,
                         displayUserName: true,
                         canOpenActivity: false,
-                        bottomListScrollFct:
-                            provider.getInitialMyAndMyFriendsActivities,
+                        bottomListScrollFct: ({int pageNumber = 0}) async {
+                          if (pageNumber > 0) return EntityPage(list: [], total: activities.length);
+                          return EntityPage(list: activities, total: activities.length);
+                        },
                       );
                     },
                     loading: () {
                       return Expanded(child: Center(child: UIUtils.loader));
                     },
                     error: (error, stackTrace) {
-                      return Text('$error');
+                      return Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              'Could not load activities. Pull to refresh.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   )
                 ])),

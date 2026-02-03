@@ -4,16 +4,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../../domain/entities/enum/activity_type.dart';
-import '../../common/core/utils/activity_utils.dart';
-import '../../common/core/utils/color_utils.dart';
+import '../../../core/theme/strava_theme.dart';
 import '../../common/location/models/gps_tracking_model.dart';
 import '../../common/location/view_model/location_view_model.dart';
 import '../../common/location/view_model/run_control_view_model.dart';
 import '../../common/location/view_model/state/run_control_state.dart';
+import '../../common/location/widgets/animated_runner_overlay.dart';
 import '../../common/location/widgets/location_map.dart';
 import '../../common/location/widgets/run_control_button.dart';
-import '../../common/timer/widgets/timer_sized.dart';
 import '../../common/metrics/widgets/metrics.dart';
 
 /// Strava-like activity tracking screen with live metrics
@@ -39,24 +37,33 @@ class StravaTrackingScreen extends HookConsumerWidget {
     final points =
         ref.read(locationViewModelProvider.notifier).savedPositionsLatLng();
 
-    // Create a marker for current position
+    // Runner marker: orange when running, blue when idle
+    final isRunning = runState.isRunning;
     final markers = <Marker>[];
     if (locationState.currentPosition != null) {
       markers.add(
         Marker(
-          markerId: const MarkerId('current_location'),
+          markerId: const MarkerId('runner'),
           position: LatLng(
             locationState.currentPosition!.latitude,
             locationState.currentPosition!.longitude,
           ),
-          infoWindow: const InfoWindow(
-            title: 'Your Location',
-            snippet: 'You are here',
+          infoWindow: InfoWindow(
+            title: isRunning ? 'Running' : 'Your Location',
+            snippet: isRunning ? 'You are here' : 'You are here',
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isRunning ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueBlue,
+          ),
         ),
       );
     }
+
+    // Closed-loop polygons from detected loops
+    final detectedLoops = locationNotifier.getDetectedLoops();
+    final closedLoopPolygons = detectedLoops
+        .map((l) => l.pointsInLoop.map((p) => p.position).toList())
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -67,7 +74,7 @@ class StravaTrackingScreen extends HookConsumerWidget {
       ),
       body: Column(
         children: [
-          // Map View
+          // Map View with animated runner overlay when running
           Expanded(
             flex: 2,
             child: ClipRRect(
@@ -75,10 +82,37 @@ class StravaTrackingScreen extends HookConsumerWidget {
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
               ),
-              child: LocationMap(
-                points: points,
-                markers: markers,
-                mapController: null,
+              child: Stack(
+                children: [
+                  LocationMap(
+                    points: points,
+                    markers: markers,
+                    mapController: null,
+                    polylineColorValue: StravaTheme.orange.value,
+                    closedLoopPolygons: closedLoopPolygons,
+                    closedLoopColorValue: StravaTheme.orange.withValues(alpha: 0.2).value,
+                  ),
+                  if (isRunning)
+                    Positioned(
+                      left: 16,
+                      top: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const AnimatedRunnerOverlay(),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

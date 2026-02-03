@@ -28,8 +28,16 @@ class LoginScreen extends HookConsumerWidget {
           : SingleChildScrollView(
               child: Column(
                 children: [
+                  const SizedBox(height: 60),
+                  Center(
+                    child: Image.asset(
+                      'assets/run_wars_logo.png',
+                      height: 80,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.only(left: 0, top: 150),
+                    padding: const EdgeInsets.only(left: 0, top: 40),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 15),
                       child: Align(

@@ -17,7 +17,10 @@ const Color _stravaOrangeDark = Color(0xFFCC4200);
 
 /// Strava-like user profile screen with Supabase user data
 class StravaProfileScreen extends HookConsumerWidget {
-  const StravaProfileScreen({super.key});
+  const StravaProfileScreen({super.key, this.onSwitchToRecord});
+
+  /// When set, "Start Your First Activity" switches to the Record tab.
+  final VoidCallback? onSwitchToRecord;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,6 +40,7 @@ class StravaProfileScreen extends HookConsumerWidget {
         final totalDistance =
             (profile?['total_distance'] as num?)?.toDouble() ?? 0.0;
         final totalSteps = (profile?['total_steps'] as int?) ?? 0;
+        final profilePictureUrl = profile?['profile_picture_url'] as String?;
         return _ProfileContent(
           fullName: fullName,
           authState: authState,
@@ -44,6 +48,8 @@ class StravaProfileScreen extends HookConsumerWidget {
           totalSteps: totalSteps,
           userId: supabaseUser?.id,
           refreshKey: refreshKey,
+          onSwitchToRecord: onSwitchToRecord,
+          profilePictureUrl: profilePictureUrl,
         );
       },
     );
@@ -57,6 +63,8 @@ class _ProfileContent extends ConsumerWidget {
   final int totalSteps;
   final String? userId;
   final ValueNotifier<int> refreshKey;
+  final VoidCallback? onSwitchToRecord;
+  final String? profilePictureUrl;
 
   const _ProfileContent({
     required this.fullName,
@@ -65,6 +73,8 @@ class _ProfileContent extends ConsumerWidget {
     required this.totalSteps,
     required this.userId,
     required this.refreshKey,
+    this.onSwitchToRecord,
+    this.profilePictureUrl,
   });
 
   @override
@@ -114,11 +124,16 @@ class _ProfileContent extends ConsumerWidget {
                       CircleAvatar(
                         radius: 48,
                         backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person,
-                          size: 56,
-                          color: _stravaOrange,
-                        ),
+                        backgroundImage: profilePictureUrl != null && profilePictureUrl!.isNotEmpty
+                            ? NetworkImage(profilePictureUrl!)
+                            : null,
+                        child: (profilePictureUrl ?? '').isEmpty
+                            ? Icon(
+                                Icons.person,
+                                size: 56,
+                                color: _stravaOrange,
+                              )
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -211,8 +226,7 @@ class _ProfileContent extends ConsumerWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            await Navigator.push(
-                              context,
+                            await Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const StravaEditProfileScreen(),
@@ -263,12 +277,13 @@ class _ProfileContent extends ConsumerWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        // Switch to Record tab (index 0)
-                        ref
-                            .read(homeViewModelProvider.notifier)
-                            .setCurrentIndex(2); // Record tab
-                      },
+                      onPressed: onSwitchToRecord != null
+                          ? onSwitchToRecord
+                          : () {
+                              ref
+                                  .read(homeViewModelProvider.notifier)
+                                  .setCurrentIndex(2);
+                            },
                       icon: const Icon(Icons.directions_run),
                       label: const Text('Start Your First Activity'),
                       style: OutlinedButton.styleFrom(

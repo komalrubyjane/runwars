@@ -6,7 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../core/services/territory_tile_service.dart';
 import '../../../core/theme/strava_theme.dart';
 
-final _tileServiceProvider = Provider((ref) => TerritoryTileService(precision: 6));
+final _tileServiceProvider = Provider((ref) => TerritoryTileService(precision: 7));
 
 /// Strava-style Maps tab: Google Map with fixed geohash grid overlay and territory tiles.
 class StravaMapsScreen extends HookConsumerWidget {

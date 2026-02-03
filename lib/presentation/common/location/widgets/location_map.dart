@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../core/utils/color_utils.dart';
-import '../../core/utils/map_utils.dart';
-import '../../core/utils/ui_utils.dart';
-
 /// Widget that displays a map with markers and polylines representing locations.
+/// Supports polyline color per player, closed-loop polygons, and animated runner marker.
 class LocationMap extends HookConsumerWidget {
   final List<LatLng> points;
   final List<Marker> markers;
@@ -15,6 +12,12 @@ class LocationMap extends HookConsumerWidget {
   final Set<Circle>? circles;
   final Set<Polygon>? polygons;
   final Set<Polyline>? customPolylines;
+  /// Polyline color for current player's path (default: Strava orange)
+  final int polylineColorValue;
+  /// Closed-loop polygons to fill (from DetectedLoop)
+  final List<List<LatLng>>? closedLoopPolygons;
+  /// Fill color for closed loops (default: Strava orange with alpha)
+  final int closedLoopColorValue;
 
   const LocationMap({
     super.key,
@@ -25,6 +28,9 @@ class LocationMap extends HookConsumerWidget {
     this.circles,
     this.polygons,
     this.customPolylines,
+    this.polylineColorValue = 0xFFFC4C02,
+    this.closedLoopPolygons,
+    this.closedLoopColorValue = 0x33FC4C02,
   });
 
   @override
@@ -36,23 +42,41 @@ class LocationMap extends HookConsumerWidget {
           )
         : (currentPosition ?? const LatLng(37.7749, -122.4194)); // Default to San Francisco
 
-    // Create polyline from points
+    // Create polyline from points with player color
     Set<Polyline> polylines = {
       if (points.isNotEmpty)
         Polyline(
           polylineId: const PolylineId('route'),
           points: points,
-          color: ColorUtils.blueGrey,
-          width: 4,
+          color: Color(polylineColorValue),
+          width: 5,
         ),
       if (customPolylines != null)
         ...customPolylines!,
     };
 
+    // Closed-loop polygons (filled regions)
+    final loopPolygons = <Polygon>{};
+    if (closedLoopPolygons != null) {
+      for (var i = 0; i < closedLoopPolygons!.length; i++) {
+        final pts = closedLoopPolygons![i];
+        if (pts.length >= 3) {
+          loopPolygons.add(
+            Polygon(
+              polygonId: PolygonId('loop_$i'),
+              points: pts,
+              fillColor: Color(closedLoopColorValue),
+              strokeColor: Color(polylineColorValue),
+              strokeWidth: 3,
+            ),
+          );
+        }
+      }
+    }
+    final allPolygons = {...?polygons, ...loopPolygons};
+
     return GoogleMap(
-      onMapCreated: (GoogleMapController controller) {
-        print('GoogleMap created successfully');
-      },
+      onMapCreated: (_) {},
       initialCameraPosition: CameraPosition(
         target: center,
         zoom: 15.0,
@@ -61,7 +85,7 @@ class LocationMap extends HookConsumerWidget {
       markers: Set<Marker>.from(markers),
       polylines: polylines,
       circles: circles ?? {},
-      polygons: polygons ?? {},
+      polygons: allPolygons,
       myLocationEnabled: true,
       myLocationButtonEnabled: true,
       compassEnabled: true,

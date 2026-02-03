@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/theme/strava_theme.dart';
 import '../../community/screens/community_screen.dart';
+import '../../community/widgets/run_invites_listener.dart';
 import '../../maps/screens/strava_maps_screen.dart';
 import '../../new_activity/screens/strava_tracking_screen.dart';
 import '../../settings/screens/strava_profile_screen.dart';
@@ -28,15 +29,19 @@ class HomeScreen extends HookConsumerWidget {
     final index = state.currentIndex.clamp(0, 4);
 
     final bodies = [
-      const StravaFeedScreen(),
+      StravaFeedScreen(
+        onSwitchToRecord: () => notifier.setCurrentIndex(2),
+      ),
       const StravaMapsScreen(),
       const StravaTrackingScreen(),
       CommunityScreen(),
-      const StravaProfileScreen(),
+      StravaProfileScreen(onSwitchToRecord: () => notifier.setCurrentIndex(2)),
     ];
 
     return Scaffold(
-      body: SafeArea(child: bodies[index]),
+      body: RunInvitesListener(
+        child: SafeArea(child: bodies[index]),
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: StravaTheme.white,

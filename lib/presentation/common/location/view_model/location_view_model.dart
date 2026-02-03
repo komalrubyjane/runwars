@@ -28,6 +28,8 @@ class LocationViewModel extends StateNotifier<LocationState> {
   final List<GPSPoint> _gpsTrack = [];
   List<DetectedLoop> _detectedLoops = [];
   CapturedTerritory? _territory;
+  DateTime? _lastLocationReportAt;
+  static const _locationReportInterval = Duration(seconds: 30);
 
   /// Creates a [LocationViewModel] instance.
   ///
@@ -118,6 +120,21 @@ class LocationViewModel extends StateNotifier<LocationState> {
           currentPosition: position,
           lastPosition: state.currentPosition ?? position,
         );
+
+        // Throttled report to Supabase for "nearby" / Groups (every 30s)
+        final now = DateTime.now();
+        if (_lastLocationReportAt == null ||
+            now.difference(_lastLocationReportAt!) >= _locationReportInterval) {
+          _lastLocationReportAt = now;
+          final user = SupabaseService().currentUser;
+          if (user != null) {
+            SupabaseService().upsertUserLocation(
+              userId: user.id,
+              lat: position.latitude,
+              lng: position.longitude,
+            );
+          }
+        }
       }
     });
   }

@@ -59,6 +59,7 @@ CREATE TABLE public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE,
   full_name TEXT,
+  profile_picture_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   total_distance DOUBLE PRECISION DEFAULT 0,
   total_steps INTEGER DEFAULT 0,
@@ -105,12 +106,76 @@ CREATE INDEX activities_date_distance_idx
   ON public.activities(date DESC, distance DESC);
 ```
 
-### 3. Enable Authentication Methods
+### 3. User locations (for Groups / nearby 5 km)
+
+```sql
+CREATE TABLE public.user_locations (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.user_locations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read all locations for nearby"
+  ON public.user_locations FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Users can insert own location"
+  ON public.user_locations FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own location"
+  ON public.user_locations FOR UPDATE
+  USING (auth.uid() = user_id);
+```
+
+### 4. Run invites ("Join me!")
+
+```sql
+CREATE TABLE public.run_invites (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  from_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  to_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  message TEXT DEFAULT 'Join me for a run!',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.run_invites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read invites they sent or received"
+  ON public.run_invites FOR SELECT
+  USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+
+CREATE POLICY "Users can insert invites they send"
+  ON public.run_invites FOR INSERT
+  WITH CHECK (auth.uid() = from_user_id);
+
+CREATE POLICY "Recipients can update (accept/decline)"
+  ON public.run_invites FOR UPDATE
+  USING (auth.uid() = to_user_id);
+```
+
+Enable Realtime for `run_invites`: Database > Replication > add `run_invites` to the publication.
+
+### 5. Enable Authentication Methods
 
 In Supabase dashboard:
 1. Go to **Authentication > Providers**
 2. Make sure **Email** is enabled
 3. (Optional) Enable other providers like Google, Apple, etc.
+
+### 6. Storage bucket for profile pictures (optional)
+
+In Supabase Dashboard: Storage > New bucket > name: `avatars`, Public bucket: Yes.
+Then: Storage > avatars > Policies > New policy: Allow authenticated users to upload (INSERT) and read (SELECT).
+
+If the users table already exists, add the column:
+```sql
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
+```
 
 ## Step 5: Set Up Row Level Security (RLS)
 

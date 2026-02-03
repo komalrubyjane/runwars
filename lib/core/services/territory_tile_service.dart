@@ -24,11 +24,11 @@ class TerritoryTile {
 }
 
 /// Geohash-based grid: deterministic tiles from lat/lon, fast point-in-tile, constant-time lookup.
-/// Precision (length of geohash) controls tile size: 5 ≈ 4.9×4.9 km, 6 ≈ 1.2×0.6 km, 7 ≈ 153×153 m.
+/// Precision (length of geohash) controls tile size: 5 ≈ 4.9×4.9 km, 6 ≈ 1.2×0.6 km, 7 ≈ 153×153 m (~200 m).
 class TerritoryTileService {
-  TerritoryTileService({this.precision = 6});
+  TerritoryTileService({this.precision = 7});
 
-  /// Geohash precision (default 6 ≈ 1.2 km × 0.6 km tiles).
+  /// Geohash precision (default 7 ≈ ~200 m tiles).
   final int precision;
 
   final Map<TileId, TerritoryTile> _tiles = {};

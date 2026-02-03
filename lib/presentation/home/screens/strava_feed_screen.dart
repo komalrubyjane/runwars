@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../domain/entities/activity.dart';
+import '../../community/widgets/run_invites_sheet.dart';
 import '../../../domain/entities/enum/activity_type.dart';
 import '../../common/core/utils/activity_utils.dart';
-import '../../common/core/utils/color_utils.dart';
 
 /// Strava-like feed screen showing all activities and social features
 class StravaFeedScreen extends HookConsumerWidget {
-  const StravaFeedScreen({super.key});
+  const StravaFeedScreen({
+    super.key,
+    this.onSwitchToRecord,
+  });
+
+  /// Switch to Record tab (e.g. "Start your first activity" button).
+  final VoidCallback? onSwitchToRecord;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,14 +24,14 @@ class StravaFeedScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feed'),
+        title: Image.asset('assets/run_wars_logo.png', height: 32, fit: BoxFit.contain),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            onPressed: () => showRunInvitesSheet(context),
           ),
         ],
       ),
@@ -49,9 +55,7 @@ class StravaFeedScreen extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () {
-                      // Navigate to tracking screen
-                    },
+                    onPressed: onSwitchToRecord,
                     child: const Text('Start your first activity'),
                   ),
                 ],
@@ -279,8 +283,6 @@ class ActivityFeedCard extends StatelessWidget {
         return 'Walking';
       case ActivityType.cycling:
         return 'Cycling';
-      default:
-        return 'Activity';
     }
   }
 }

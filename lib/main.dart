@@ -92,7 +92,7 @@ class MyApp extends HookConsumerWidget {
         '/activity_list': (context) => ActivityListScreen()
       },
       navigatorKey: navigatorKey,
-      title: 'Run Flutter Run',
+      title: 'Run Wars',
       debugShowCheckedModeBanner: false,
       theme: StravaTheme.lightTheme.copyWith(
         textSelectionTheme: TextSelectionThemeData(
