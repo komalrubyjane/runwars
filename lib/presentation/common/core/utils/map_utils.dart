@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Utility class for map-related operations.
 class MapUtils {
@@ -28,7 +28,21 @@ class MapUtils {
   /// The [point1] and [point2] are the coordinates to calculate the distance between.
   /// Returns the distance between the coordinates in meters.
   static double getDistance(LatLng point1, LatLng point2) {
-    return const Distance().as(LengthUnit.Meter, point1, point2);
+    const earthRadiusInMeters = 6371000;
+    double dLat = _toRad(point2.latitude - point1.latitude);
+    double dLng = _toRad(point2.longitude - point1.longitude);
+
+    double a = (sin(dLat / 2) * sin(dLat / 2)) +
+        (cos(_toRad(point1.latitude)) *
+            cos(_toRad(point2.latitude)) *
+            sin(dLng / 2) *
+            sin(dLng / 2));
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadiusInMeters * c;
+  }
+
+  static double _toRad(double degree) {
+    return degree * pi / 180;
   }
 
   /// Calculates the radius of a collection of [points] around a given [center] coordinate.

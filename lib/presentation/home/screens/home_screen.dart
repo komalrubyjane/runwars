@@ -6,9 +6,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../common/core/utils/color_utils.dart';
 import '../../community/screens/community_screen.dart';
 import '../../my_activities/screens/activity_list_screen.dart';
-import '../../new_activity/screens/new_activity_screen.dart';
-import '../../settings/screens/settings_screen.dart';
+import '../../new_activity/screens/strava_tracking_screen.dart';
+import '../../settings/screens/strava_profile_screen.dart';
 import '../view_model/home_view_model.dart';
+import '../screens/strava_feed_screen.dart';
 
 /// An enumeration representing the available tabs in the home screen.
 enum Tabs { home, list, community, settings }
@@ -24,10 +25,10 @@ class HomeScreen extends HookConsumerWidget {
     final currentIndex = state.currentIndex;
 
     final tabs = [
-      const NewActivityScreen(),
-      ActivityListScreen(),
+      const StravaTrackingScreen(),
+      const StravaFeedScreen(),
       CommunityScreen(),
-      const SettingsScreen(),
+      const StravaProfileScreen(),
     ];
 
     return Scaffold(
@@ -49,20 +50,20 @@ class HomeScreen extends HookConsumerWidget {
                 gap: 8,
                 tabs: [
                   GButton(
-                    icon: Icons.flash_on,
-                    text: AppLocalizations.of(context)!.start_activity,
+                    icon: Icons.directions_run,
+                    text: 'Record',
                   ),
                   GButton(
-                    icon: Icons.list,
-                    text: AppLocalizations.of(context)!.list,
+                    icon: Icons.feed,
+                    text: 'Feed',
                   ),
                   GButton(
                     icon: Icons.people,
                     text: AppLocalizations.of(context)!.community,
                   ),
                   GButton(
-                    icon: Icons.settings,
-                    text: AppLocalizations.of(context)!.settings,
+                    icon: Icons.person,
+                    text: 'Profile',
                   ),
                 ],
               ),

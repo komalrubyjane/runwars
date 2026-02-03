@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:run_flutter_run/l10n/app_localizations.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../domain/entities/activity.dart';
 import '../../../domain/entities/location.dart';

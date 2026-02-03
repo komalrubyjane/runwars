@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../domain/entities/activity.dart';
 import '../../../domain/entities/enum/activity_type.dart';
@@ -37,44 +36,26 @@ class DetailsTab extends HookConsumerWidget {
     if (activity.locations.isNotEmpty) {
       markers.add(
         Marker(
-          width: 80.0,
-          height: 80.0,
-          point: LatLng(
+          markerId: const MarkerId('start_location'),
+          position: LatLng(
             activity.locations.first.latitude,
             activity.locations.first.longitude,
           ),
-          child: Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.location_on_rounded),
-                color: ColorUtils.greenDarker,
-                iconSize: 35.0,
-                onPressed: () {},
-              ),
-            ],
-          ),
+          infoWindow: const InfoWindow(title: 'Start Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
 
       if (activity.locations.length > 1) {
         markers.add(
           Marker(
-            width: 80.0,
-            height: 80.0,
-            point: LatLng(
+            markerId: const MarkerId('end_location'),
+            position: LatLng(
               activity.locations.last.latitude,
               activity.locations.last.longitude,
             ),
-            child: Column(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.location_on_rounded),
-                  color: ColorUtils.red,
-                  iconSize: 35.0,
-                  onPressed: () {},
-                ),
-              ],
-            ),
+            infoWindow: const InfoWindow(title: 'End Location'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           ),
         );
       }
@@ -114,7 +95,7 @@ class DetailsTab extends HookConsumerWidget {
                     child: LocationMap(
                       points: points,
                       markers: markers,
-                      mapController: MapController(),
+                      mapController: null,
                     ),
                   ),
                 )),

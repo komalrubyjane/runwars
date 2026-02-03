@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/utils/storage_utils.dart';
 import '../../../data/api/activity_api.dart';
@@ -24,11 +23,8 @@ final activityDetailsViewModelProvider = StateNotifierProvider.autoDispose<
 /// View model for the activity details screen.
 class ActivityDetailsViewModel extends StateNotifier<ActivityDetailsState> {
   late final Ref ref;
-  MapController? mapController;
 
-  ActivityDetailsViewModel(this.ref) : super(ActivityDetailsState.initial()) {
-    mapController = MapController();
-  }
+  ActivityDetailsViewModel(this.ref) : super(ActivityDetailsState.initial());
 
   /// Navigates back to the home screen.
   void backToHome() {

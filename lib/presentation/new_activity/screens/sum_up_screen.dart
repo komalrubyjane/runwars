@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:run_flutter_run/l10n/app_localizations.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../domain/entities/enum/activity_type.dart';
 import '../../common/core/utils/activity_utils.dart';
@@ -36,44 +35,26 @@ class SumUpScreen extends HookConsumerWidget {
     if (locations.isNotEmpty) {
       markers.add(
         Marker(
-          width: 80.0,
-          height: 80.0,
-          point: LatLng(
+          markerId: const MarkerId('start_location'),
+          position: LatLng(
             locations.first.latitude,
             locations.first.longitude,
           ),
-          child: Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.location_on_rounded),
-                color: ColorUtils.greenDarker,
-                iconSize: 35.0,
-                onPressed: () {},
-              ),
-            ],
-          ),
+          infoWindow: const InfoWindow(title: 'Start Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
 
       if (locations.length > 1) {
         markers.add(
           Marker(
-            width: 80.0,
-            height: 80.0,
-            point: LatLng(
+            markerId: const MarkerId('end_location'),
+            position: LatLng(
               locations.last.latitude,
               locations.last.longitude,
             ),
-            child: Column(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.location_on_rounded),
-                  color: ColorUtils.red,
-                  iconSize: 35.0,
-                  onPressed: () {},
-                ),
-              ],
-            ),
+            infoWindow: const InfoWindow(title: 'End Location'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           ),
         );
       }
@@ -106,7 +87,7 @@ class SumUpScreen extends HookConsumerWidget {
                           child: LocationMap(
                             points: points,
                             markers: markers,
-                            mapController: MapController(),
+                            mapController: null,
                           ),
                         ),
                       ),

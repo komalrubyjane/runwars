@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.run_flutter_run"
-    compileSdkVersion 34
+    compileSdkVersion 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -58,6 +58,10 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+}
+
+dependencies {
+    implementation 'org.apache.httpcomponents:httpcore:4.4.16'
 }
 
 flutter {

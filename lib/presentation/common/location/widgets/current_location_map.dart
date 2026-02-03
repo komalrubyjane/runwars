@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../core/utils/color_utils.dart';
 import '../../core/utils/ui_utils.dart';
@@ -33,36 +32,36 @@ class CurrentLocationMap extends HookConsumerWidget {
 
     final markers = <Marker>[
       Marker(
-        width: 80,
-        height: 80,
-        point: LatLng(currentLatitude, currentLongitude),
-        child: Icon(
-          Icons.circle,
-          size: 20,
-          color: ColorUtils.errorDarker,
-        ),
+        markerId: const MarkerId('current_position'),
+        position: LatLng(currentLatitude, currentLongitude),
+        infoWindow: const InfoWindow(title: 'Current Location'),
       ),
     ];
 
     if (points.isNotEmpty) {
       markers.add(
         Marker(
-          width: 80.0,
-          height: 80.0,
-          point: LatLng(
+          markerId: const MarkerId('start_position'),
+          position: LatLng(
             points.first.latitude,
             points.first.longitude,
           ),
-          child: Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.location_on_rounded),
-                color: ColorUtils.greenDarker,
-                iconSize: 35.0,
-                onPressed: () {},
-              ),
-            ],
+          infoWindow: const InfoWindow(title: 'Start Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        ),
+      );
+    }
+
+    if (points.length > 1) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('end_position'),
+          position: LatLng(
+            points.last.latitude,
+            points.last.longitude,
           ),
+          infoWindow: const InfoWindow(title: 'End Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     }
@@ -86,7 +85,7 @@ class CurrentLocationMap extends HookConsumerWidget {
                     points: points,
                     markers: markers,
                     currentPosition: LatLng(currentLatitude, currentLongitude),
-                    mapController: provider.mapController ?? MapController(),
+                    mapController: null,
                   ))));
     }, loading: () {
       return Expanded(child: Center(child: UIUtils.loader));
