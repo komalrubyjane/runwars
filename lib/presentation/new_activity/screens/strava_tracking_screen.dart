@@ -1,18 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../../core/theme/strava_theme.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../common/location/models/gps_tracking_model.dart';
 import '../../common/location/view_model/location_view_model.dart';
+import '../../common/location/view_model/state/location_state.dart';
 import '../../common/location/view_model/run_control_view_model.dart';
 import '../../common/location/view_model/state/run_control_state.dart';
 import '../../common/location/widgets/animated_runner_overlay.dart';
-import '../../common/location/widgets/location_map.dart';
 import '../../common/location/widgets/run_control_button.dart';
+import '../../common/location/widgets/tracking_map_with_grid.dart';
 import '../../common/metrics/widgets/metrics.dart';
+
+final _userProfileProvider = FutureProvider.family<Map<String, dynamic>?, String>((ref, userId) async {
+  if (userId.isEmpty) return null;
+  return SupabaseService().getUserProfile(userId);
+});
 
 /// Strava-like activity tracking screen with live metrics
 class StravaTrackingScreen extends HookConsumerWidget {
@@ -25,14 +33,21 @@ class StravaTrackingScreen extends HookConsumerWidget {
     final locationNotifier = ref.read(locationViewModelProvider.notifier);
     final runNotifier = ref.read(runControlViewModelProvider.notifier);
 
-    // Initialize location on screen load
     useEffect(() {
       _requestLocationPermission(context, locationNotifier);
       locationNotifier.startGettingLocation();
-      return () {
-        // Cleanup if needed
-      };
+      return () {};
     }, []);
+
+    // Tick every second when run active so timer/UI updates
+    final tick = useState(0);
+    useEffect(() {
+      if (!runState.isRunning && !runState.isPaused) return null;
+      final t = Timer.periodic(const Duration(seconds: 1), (_) {
+        tick.value++;
+      });
+      return t.cancel;
+    }, [runState.isRunning, runState.isPaused]);
 
     final points =
         ref.read(locationViewModelProvider.notifier).savedPositionsLatLng();
@@ -65,9 +80,21 @@ class StravaTrackingScreen extends HookConsumerWidget {
         .map((l) => l.pointsInLoop.map((p) => p.position).toList())
         .toList();
 
+    final userId = SupabaseService().currentUser?.id;
+    final profileAsync = ref.watch(_userProfileProvider(userId ?? ''));
+
+    final userName = profileAsync.valueOrNull?['full_name'] as String? ??
+        SupabaseService().currentUser?.email?.split('@').first ?? 'Runner';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Record Activity'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Record Activity', style: TextStyle(fontSize: 18)),
+            Text(userName, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.normal)),
+          ],
+        ),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -84,15 +111,12 @@ class StravaTrackingScreen extends HookConsumerWidget {
               ),
               child: Stack(
                 children: [
-                  LocationMap(
+                  TrackingMapWithGrid(
                     points: points,
-                    markers: markers,
-                    mapController: null,
-                    polylineColorValue: StravaTheme.orange.value,
+                    markers: markers.toSet(),
                     closedLoopPolygons: closedLoopPolygons,
-                    closedLoopColorValue: StravaTheme.orange.withValues(alpha: 0.2).value,
                   ),
-                  if (isRunning)
+                  if (isRunning || runState.isPaused)
                     Positioned(
                       left: 16,
                       top: 16,
@@ -149,130 +173,37 @@ class StravaTrackingScreen extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Primary Metrics (Large Display)
+                  // Primary Metrics - 2x2 grid
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildMetricCard(
-                        'DISTANCE',
-                        '${(locationState.savedPositions.isNotEmpty ? _calculateDistance(locationState.savedPositions) / 1000 : 0).toStringAsFixed(2)}',
-                        'km',
-                      ),
-                      _buildMetricCard(
-                        'TIME',
-                        _formatTime(runNotifier.getElapsedSeconds()),
-                        '',
-                      ),
+                      Expanded(child: _buildMetricCard('DISTANCE', '${(locationState.savedPositions.isNotEmpty ? _calculateDistance(locationState.savedPositions) / 1000 : 0).toStringAsFixed(2)}', 'km')),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildMetricCard('TIME', _formatTime(runNotifier.getElapsedSeconds()), '')),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _buildMetricCard('STEPS', '${locationState.stepCount}', '')),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildMetricCard('SPEED', _formatSpeed(locationState, runNotifier.getElapsedSeconds()), 'km/h')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
-                  // Step Count
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue, width: 2),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  // GPS status (compact)
+                  if (locationState.currentPosition != null)
+                    Row(
                       children: [
-                        const Icon(Icons.directions_walk, color: Colors.blue, size: 24),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'STEPS',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '${locationState.stepCount}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
+                        Icon(Icons.gps_fixed, size: 16, color: Colors.green[700]),
+                        const SizedBox(width: 6),
+                        Text('GPS: ${locationState.currentPosition!.accuracy.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  // GPS Accuracy Info
-                  if (locationState.currentPosition != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '📍 GPS Status',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Accuracy: ${locationState.currentPosition!.accuracy.toStringAsFixed(1)}m',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.green,
-                                ),
-                              ),
-                              Text(
-                                'Lat: ${locationState.currentPosition!.latitude.toStringAsFixed(4)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                'Lon: ${locationState.currentPosition!.longitude.toStringAsFixed(4)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.location_on,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-
-                  // Secondary Metrics
                   const Metrics(),
                   const SizedBox(height: 20),
 
@@ -463,6 +394,12 @@ class StravaTrackingScreen extends HookConsumerWidget {
       total += R * c;
     }
     return total;
+  }
+
+  String _formatSpeed(LocationState locState, int elapsedSeconds) {
+    if (locState.savedPositions.isEmpty || elapsedSeconds <= 0) return '0.0';
+    final distKm = _calculateDistance(locState.savedPositions) / 1000;
+    return (distKm / (elapsedSeconds / 3600)).toStringAsFixed(1);
   }
 
   String _formatTime(int seconds) {

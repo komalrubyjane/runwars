@@ -35,8 +35,8 @@ class _AnimatedRunnerOverlayState extends State<AnimatedRunnerOverlay>
         return Transform.translate(
           offset: Offset(0, 4 * _controller.value),
           child: Icon(
-            Icons.directions_run,
-            size: 48,
+            Icons.directions_walk,
+            size: 40,
             color: const Color(0xFFFC4C02),
           ),
         );

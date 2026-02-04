@@ -88,8 +88,12 @@ class LocationViewModel extends StateNotifier<LocationState> {
         // Log position updates for debugging
         print('GPS Update: Lat=${position.latitude}, Lon=${position.longitude}, Accuracy=${position.accuracy}m');
         
+        // Save positions when run is active (Strava tracking) OR when timer is running (legacy flow)
         final timerProvider = ref.read(timerViewModelProvider.notifier);
-        if (timerProvider.isTimerRunning() && timerProvider.hasTimerStarted()) {
+        final shouldRecord = _isRunActive ||
+            (timerProvider.isTimerRunning() && timerProvider.hasTimerStarted());
+
+        if (shouldRecord) {
           metricsProvider.updateMetrics();
 
           final positions = List<LocationRequest>.from(state.savedPositions);
@@ -100,16 +104,14 @@ class LocationViewModel extends StateNotifier<LocationState> {
               longitude: position.longitude,
             ),
           );
-          
-          // Calculate steps from GPS distance
+
           final newStepCount = _calculateStepsFromDistance(positions);
-          
+
           state = state.copyWith(
             savedPositions: positions,
             stepCount: newStepCount,
           );
-          
-          // Track GPS point for advanced analytics
+
           if (_isRunActive) {
             _addGPSPoint(position);
             _updateRunAnalytics();

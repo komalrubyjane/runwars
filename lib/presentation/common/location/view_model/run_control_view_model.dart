@@ -12,8 +12,12 @@ final runControlViewModelProvider =
 class RunControlViewModel extends StateNotifier<RunControlState> {
   RunControlViewModel() : super(RunControlState.initial());
 
+  final _stopwatch = Stopwatch();
+
   /// Starts a new run
   void startRun() {
+    _stopwatch.reset();
+    _stopwatch.start();
     state = state.copyWith(
       isRunning: true,
       isPaused: false,
@@ -26,25 +30,22 @@ class RunControlViewModel extends StateNotifier<RunControlState> {
   /// Pauses the current run
   void pauseRun() {
     if (state.isRunning) {
-      state = state.copyWith(
-        isRunning: false,
-        isPaused: true,
-      );
+      _stopwatch.stop();
+      state = state.copyWith(isRunning: false, isPaused: true);
     }
   }
 
   /// Resumes a paused run
   void resumeRun() {
     if (state.isPaused && !state.hasRunEnded) {
-      state = state.copyWith(
-        isRunning: true,
-        isPaused: false,
-      );
+      _stopwatch.start();
+      state = state.copyWith(isRunning: true, isPaused: false);
     }
   }
 
   /// Stops the current run and finalizes it
   void stopRun(RunStatistics statistics) {
+    _stopwatch.stop();
     state = state.copyWith(
       isRunning: false,
       isPaused: false,
@@ -56,10 +57,10 @@ class RunControlViewModel extends StateNotifier<RunControlState> {
 
   /// Resets the run state
   void resetRun() {
+    _stopwatch.reset();
     state = RunControlState.initial();
   }
 
-  /// Gets the current run status
   RunStatus getRunStatus() {
     if (!state.hasRunStarted) return RunStatus.notStarted;
     if (state.hasRunEnded) return RunStatus.finished;
@@ -68,15 +69,8 @@ class RunControlViewModel extends StateNotifier<RunControlState> {
     return RunStatus.notStarted;
   }
 
-  /// Gets elapsed time in seconds
-  int getElapsedSeconds() {
-    if (state.runStartTime == null) return 0;
-    
-    final now = state.runEndTime ?? DateTime.now();
-    final elapsed = now.difference(state.runStartTime!);
-    
-    return elapsed.inSeconds;
-  }
+  /// Elapsed time from Stopwatch (excludes paused time)
+  int getElapsedSeconds() => _stopwatch.elapsed.inSeconds;
 }
 
 /// Enum representing different run statuses

@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../domain/entities/activity.dart';
-import '../../community/widgets/run_invites_sheet.dart';
 import '../../../domain/entities/enum/activity_type.dart';
+import '../../community/providers/community_activities_provider.dart';
+import '../../community/widgets/run_invites_sheet.dart';
 import '../../common/core/utils/activity_utils.dart';
+import '../providers/home_activities_provider.dart';
 
-/// Strava-like feed screen showing all activities and social features
+/// Strava-like feed: dashboard (daily/weekly/monthly) + all activities
 class StravaFeedScreen extends HookConsumerWidget {
   const StravaFeedScreen({
     super.key,
     this.onSwitchToRecord,
   });
 
-  /// Switch to Record tab (e.g. "Start your first activity" button).
   final VoidCallback? onSwitchToRecord;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // In a real app, this would be fetched from a provider
-    // For now, we'll create mock activities
-    final activities = _getMockActivities();
+    final activitiesAsync = ref.watch(communityActivitiesProvider);
+    final dashboardAsync = ref.watch(homeActivitiesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -35,45 +35,140 @@ class StravaFeedScreen extends HookConsumerWidget {
           ),
         ],
       ),
-      body: activities.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_run,
-                    size: 64,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No activities yet',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: onSwitchToRecord,
-                    child: const Text('Start your first activity'),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: activities.length,
-              itemBuilder: (context, index) {
-                return ActivityFeedCard(activity: activities[index]);
-              },
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(communityActivitiesProvider);
+          ref.invalidate(homeActivitiesProvider);
+        },
+        child: activitiesAsync.when(
+          data: (activities) => dashboardAsync.when(
+            data: (stats) => _buildBody(context, activities, stats),
+            loading: () => _buildBody(context, activities, const DashboardStats()),
+            error: (_, __) => _buildBody(context, activities, const DashboardStats()),
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error: $e', style: TextStyle(color: Colors.grey[600])),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(communityActivitiesProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 
-  List<Activity> _getMockActivities() {
-    // This would be replaced with actual activity data from the database
-    return [];
+  Widget _buildBody(BuildContext context, List<Activity> activities, DashboardStats stats) {
+    if (activities.isEmpty && stats.dailyKm == 0) {
+      return ListView(
+        children: [
+          _DashboardSection(stats: stats, onSwitchToRecord: onSwitchToRecord),
+          const SizedBox(height: 24),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.directions_run, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text('No activities yet', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                const SizedBox(height: 24),
+                ElevatedButton(onPressed: onSwitchToRecord, child: const Text('Start your first activity')),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        _DashboardSection(stats: stats, onSwitchToRecord: onSwitchToRecord),
+        const SizedBox(height: 16),
+        Text('All Activities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+        const SizedBox(height: 12),
+        ...activities.map((a) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ActivityFeedCard(activity: a),
+        )),
+      ],
+    );
+  }
+}
+
+class _DashboardSection extends StatelessWidget {
+  final DashboardStats stats;
+  final VoidCallback? onSwitchToRecord;
+
+  const _DashboardSection({required this.stats, this.onSwitchToRecord});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Dashboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _StatBox('Daily', '${stats.dailyKm.toStringAsFixed(1)} km', stats.dailyCount)),
+                const SizedBox(width: 12),
+                Expanded(child: _StatBox('Weekly', '${stats.weeklyKm.toStringAsFixed(1)} km', stats.weeklyCount)),
+                const SizedBox(width: 12),
+                Expanded(child: _StatBox('Monthly', '${stats.monthlyKm.toStringAsFixed(1)} km', stats.monthlyCount)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onSwitchToRecord,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Record Activity'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final int count;
+
+  const _StatBox(this.label, this.value, this.count);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('$count activities', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+        ],
+      ),
+    );
   }
 }
 
